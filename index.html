@@ -2,63 +2,101 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>مسح الغرفة - نظام الواقع الافتراضي</title>
+    <title>أداة مسح الغرفة - الواقع الافتراضي</title>
     <style>
-        body { font-family: Tahoma, sans-serif; background: #111; color: #fff; text-align: center; padding-top: 50px; }
-        button { background: #4CAF50; color: white; border: none; padding: 15px 30px; font-size: 18px; cursor: pointer; border-radius: 8px; }
-        button:hover { background: #45a049; }
+        body { font-family: Tahoma, sans-serif; background: #0b0f19; color: #fff; text-align: center; padding-top: 40px; margin: 0; }
+        .card { background: #1f293d; max-width: 500px; margin: auto; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        button { background: #4f46e5; color: white; border: none; padding: 12px 25px; font-size: 16px; cursor: pointer; border-radius: 8px; margin-top: 15px; transition: 0.3s; }
+        button:hover { background: #4338ca; }
+        #gameLinkBtn { background: #059669; display: none; }
+        #gameLinkBtn:hover { background: #047857; }
+        pre { background: #111827; padding: 15px; border-radius: 6px; text-align: left; direction: ltr; max-height: 150px; overflow-y: auto; font-size: 13px; color: #34d399; }
+        .status { margin-top: 15px; font-weight: bold; color: #fbbf24; }
     </style>
 </head>
 <body>
-    <h1>نظام مسح وتجهيز الغرفة</h1>
-    <p>اضغط على الزر أدناه لبدء مسح الأثاث الأساسي وتخطي الفوضى وغرف النوم المغلقة:</p>
-    <br>
-    <button id="startScanBtn">بدء مسح الغرفة الآن</button>
+    <div class="card">
+        <h1>مسح وتجهيز الغرفة</h1>
+        <p>هذا الموقع مستقل لتحديد موقع الأثاث وتصفية الفوضى والغرف الأخرى.</p>
+        
+        <button id="startScanBtn">بدء مسح الغرفة عبر WebXR</button>
+        <div class="status" id="statusText">الحالة: بانتظار بدء المسح...</div>
+
+        <h3>بيانات الأثاث المستخرجة (JSON):</h3>
+        <pre id="jsonOutput">لم يتم إجراء مسح بعد...</pre>
+
+        <!-- زر الانتقال لموقع اللعبة المستقل (سيظهر بعد إتمام المسح) -->
+        <button id="gameLinkBtn" onclick="goToGame()">الانتقال إلى لعبة التنظيف المستقلة</button>
+    </div>
 
     <script>
+        let finalCleanData = null;
+
         document.getElementById('startScanBtn').addEventListener('click', async () => {
+            const statusText = document.getElementById('statusText');
+            
             if (navigator.xr) {
                 try {
-                    // طلب جلسة WebXR مع دعم ميزات مسح المكان إن توفرت
+                    statusText.innerText = "جاري تفعيل جلسة الواقع الافتراضي للمسح...";
                     const session = await navigator.xr.requestSession('immersive-ar', {
                         requiredFeatures: ['hit-test', 'local-floor']
                     });
                     
-                    alert('جاري مسح الأثاث الثابت فقط (كنب، طاولات، تلفزيون)... يرجى التحرك في الغرفة.');
+                    statusText.innerText = "جاري مسح الأثاث الثابت وتصفية الفوضى...";
                     
-                    // محاكاة استخراج البيانات وتصفيتها برمجياً
+                    // محاكاة استخراج البيانات وتطبيق الفلتر (تجاهل الأشخاص، الأوساخ، والحمامات)
                     setTimeout(() => {
                         const rawScannedData = {
-                            rooms: [{ type: 'living_room', name: 'الصالة الرئيسية' }],
+                            excludedRooms: ["bathroom", "locked_room"],
                             furniture: [
-                                { type: 'COUCH', position: {x: 0, y: 0, z: -2}, dimensions: {width: 2, height: 0.8, depth: 0.9} },
-                                { type: 'TABLE', position: {x: 1, y: 0, z: -1.5}, dimensions: {width: 1.2, height: 0.5, depth: 0.6} },
-                                { type: 'TV_SCREEN', position: {x: 0, y: 1.2, z: -3}, dimensions: {width: 1.4, height: 0.8, depth: 0.1} }
+                                { type: 'COUCH', position: {x: 0, y: 0, z: -2.5}, dimensions: {width: 2.1, height: 0.8, depth: 0.9} },
+                                { type: 'TABLE', position: {x: 1.2, y: 0, z: -1.8}, dimensions: {width: 1.2, height: 0.5, depth: 0.6} },
+                                { type: 'TV_SCREEN', position: {x: 0, y: 1.3, z: -3.2}, dimensions: {width: 1.5, height: 0.9, depth: 0.1} },
+                                { type: 'DIRT_OR_PERSON', position: {x: 0.5, y: 0, z: -1}, dimensions: {width: 0.2, height: 0.2, depth: 0.2} } // سيتم حذفه
                             ]
                         };
 
-                        // تصفية العناصر المتجاهلة (الأشخاص، الأوساخ، المليس، الغرف الأخرى)
-                        const cleanData = filterUnwantedObjects(rawScannedData);
+                        // تنفيذ الفلترة البرمجية المخصصة
+                        finalCleanData = filterHouseData(rawScannedData);
                         
-                        // حفظ البيانات المؤقتة والتحول للعبة التنظيف
-                        localStorage.setItem('cleanHouseMap', JSON.stringify(cleanData));
-                        alert('تم مسح الغرفة وتصفيتها بنجاح! سيتم الانتقال للعبة التنظيف.');
-                        window.location.href = 'game.html';
-                    }, 3000);
+                        // عرض النتيجة بصيغة JSON نظيفة
+                        document.getElementById('jsonOutput').innerText = JSON.stringify(finalCleanData, null, 2);
+                        statusText.innerText = "تمت عملية المسح والتصفية بنجاح!";
+                        
+                        // حفظ البيانات في الذاكرة المحلية أو نقلها لترسلها لاحقاً لموقع اللعبة
+                        localStorage.setItem('scannedHouseMap', JSON.stringify(finalCleanData));
+
+                        // إظهار زر الانتقال للعبة المستقلة
+                        document.getElementById('gameLinkBtn').style.display = 'inline-block';
+
+                    }, 2500);
 
                 } catch (e) {
-                    alert('عذراً، متصفح النظارة لا يدعم وضع الرفع المباشر أو تم رفض الإذن: ' + e.message);
+                    statusText.innerText = "فشل بدء الجلسة: " + e.message;
                 }
             } else {
-                alert('خاصية WebXR غير مدعومة في هذا المتصفح.');
+                statusText.innerText = "خاصية WebXR غير مدعومة على هذا المتصفح.";
             }
         });
 
-        function filterUnwantedObjects(data) {
-            // كود الفلترة لضمان جلب الأثاث المطلوب فقط
-            const allowedTypes = ['COUCH', 'TABLE', 'TV_SCREEN'];
-            data.furniture = data.furniture.filter(item => allowedTypes.includes(item.type));
-            return data;
+        function filterHouseData(data) {
+            // فلترة صارمة: السماح فقط للأثاث المطلوب وتجاهل أي كائنات غريبة أو فوضى
+            const allowedFurniture = ['COUCH', 'TABLE', 'TV_SCREEN'];
+            let cleanedFurniture = data.furniture.filter(item => allowedFurniture.includes(item.type));
+            
+            return {
+                timestamp: new Date().toISOString(),
+                furniture: cleanedFurniture
+            };
+        }
+
+        function goToGame() {
+            // استبدل هذا الرابط لاحقاً برابط موقع اللعبة المستقل على GitHub Pages
+            const gameUrl = "https://your-username.github.io/game-repo/game.html"; 
+            
+            // كمرحلة تجريبية محلية، إذا ما رفعت اللعبة بعد، يقدر يوجهك لنفس الملف أو تنبيه
+            alert("سيتم توجيهك الآن إلى موقع اللعبة المستقل (تأكد من تحديث رابط موقع اللعبة في الكود).");
+            // window.location.href = gameUrl;
         }
     </script>
 </body>
